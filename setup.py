@@ -1,10 +1,10 @@
 from setuptools import find_packages, setup
 
-package_name = 'obj_detection'
+package_name = 'ros2_dinosaur'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -15,14 +15,14 @@ setup(
         'setuptools',
     ],
     zip_safe=True,
-    maintainer='asdf',
-    maintainer_email='asdf@todo.todo',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='Jonas Loos',
+    maintainer_email='33965649+JonasLoos@users.noreply.github.com',
+    description='object detection and position estimation using a camera feed and depth information',
+    license='MIT',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'obj_detection = obj_detection.obj_detection:main',
+            'dinosaur = ros2_dinosaur.dinosaur:main',
         ],
     },
 )
