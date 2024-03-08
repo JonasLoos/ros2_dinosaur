@@ -93,10 +93,11 @@ def calculate_3d_position(x, y, depth, camera_info):
 
 
 class ObjectDetectionAndLocalizationNode(Node):
-    def __init__(self, query: str, image_topic: str, depth_topic: str, camera_info_topic: str, frame_id: str):
+    def __init__(self, query: str, image_topic: str, depth_topic: str, camera_info_topic: str, frame_id: str, update_on: str = "image"):
         super().__init__('object_detection_and_localization_node')
         self.query = query
         self.frame_id = frame_id
+        self.update_on = update_on
 
         # load models
         self.groundingdino_model = load_model_hf("ShilongLiu/GroundingDINO", "groundingdino_swinb_cogcoor.pth", "GroundingDINO_SwinB.cfg.py")
@@ -148,7 +149,8 @@ class ObjectDetectionAndLocalizationNode(Node):
             return
         image_source = np.asarray(cv_image)
         self.last_image = image_source
-        self.publish_result()
+        if self.update_on in ["image", "both"]:
+            self.publish_result()
 
 
     def depth_stream_callback(self, msg):
@@ -159,6 +161,8 @@ class ObjectDetectionAndLocalizationNode(Node):
             return
         depth_image = np.asarray(cv_image)
         self.last_depth_image = depth_image
+        if self.update_on in ["depth", "both"]:
+            self.publish_result()
 
 
     def publish_offset_vectors(self, boxes, phrases, depths):
@@ -275,6 +279,7 @@ def main(args=None):
     parser.add_argument('-d', '--depth_topic', type=str, required=False, help='ros2 topic name for the depth stream', default=None)
     parser.add_argument('-c', '--camera_info_topic', type=str, required=False, help='ros2 topic name for the camera info', default=None)
     parser.add_argument('-f', '--frame_id', type=str, required=False, help='frame id for the camera', default="camera_link")
+    parser.add_argument('-u', '--update_on', type=str, required=False, help='update on receiving `image`, `depth` or `both`', default="both", choices=["image", "depth", "both"])
     cmdline_args = parser.parse_args()
 
     rclpy.init(args=args)
@@ -283,7 +288,8 @@ def main(args=None):
         image_topic = cmdline_args.image_topic,
         depth_topic = cmdline_args.depth_topic,
         camera_info_topic = cmdline_args.camera_info_topic,
-        frame_id = cmdline_args.frame_id
+        frame_id = cmdline_args.frame_id,
+        update_on = cmdline_args.update_on,
     )
     try:
         rclpy.spin(node)
