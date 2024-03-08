@@ -4,11 +4,10 @@ import os
 import numpy as np
 import torch
 from torch.utils.cpp_extension import CUDA_HOME
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image as ImageMsg, CameraInfo
-from std_msgs.msg import String
 from geometry_msgs.msg import PoseArray, Pose
 from visualization_msgs.msg import Marker, MarkerArray
 from cv_bridge import CvBridge, CvBridgeError
@@ -30,11 +29,8 @@ from huggingface_hub import hf_hub_download
 
 # segment anything
 from segment_anything import build_sam, SamPredictor 
-import numpy as np
 
 
-# depth estimation
-from transformers import pipeline
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
@@ -97,8 +93,9 @@ def calculate_3d_position(x, y, depth, camera_info):
 
 
 class ObjectDetectionAndLocalizationNode(Node):
-    def __init__(self, image_topic: str, depth_topic: str, camera_info_topic: str, frame_id: str):
+    def __init__(self, query: str, image_topic: str, depth_topic: str, camera_info_topic: str, frame_id: str):
         super().__init__('object_detection_and_localization_node')
+        self.query = query
         self.frame_id = frame_id
 
         # load models
@@ -170,7 +167,6 @@ class ObjectDetectionAndLocalizationNode(Node):
         marker_array = MarkerArray()
 
         for i, (box, phrase, depth) in enumerate(zip(boxes, phrases, depths)):
-            # Assuming box format is [center_x, center_y, width, height]
             pose = Pose()
             center_x = box[0] + 0.5 * box[2]
             center_y = box[1] + 0.5 * box[3]
@@ -198,10 +194,10 @@ class ObjectDetectionAndLocalizationNode(Node):
 
     @torch.no_grad()
     def publish_result(self):
-        TEXT_PROMPT = "cat"
         BOX_TRESHOLD = 0.3
         TEXT_TRESHOLD = 0.25
 
+        # setup image
         image_source = self.last_image
         transform = T.Compose([
             T.RandomResize([800], max_size=1333),
@@ -210,16 +206,17 @@ class ObjectDetectionAndLocalizationNode(Node):
         ])
         image, _ = transform(Image.fromarray(image_source), None)
 
+        # predict bounding boxes
         boxes, logits, phrases = predict(
             model=self.groundingdino_model,
             image=image,
-            caption=TEXT_PROMPT,
+            caption=self.query,
             box_threshold=BOX_TRESHOLD,
             text_threshold=TEXT_TRESHOLD
         )
         annotated_frame = annotate(image_source=image_source, boxes=boxes, logits=logits, phrases=phrases)
-        # annotated_frame = annotated_frame[...,::-1] # BGR to RGB
-        
+
+        # helper function to show mask on image
         def show_mask(mask, image, random_color=True):
             if random_color:
                 color = np.concatenate([np.random.random(3), np.array([0.8])], axis=0)
@@ -234,6 +231,7 @@ class ObjectDetectionAndLocalizationNode(Node):
             return np.array(Image.alpha_composite(annotated_frame_pil, mask_image_pil))
 
 
+        # segment anything
         self.sam_predictor.set_image(image_source)
         H, W, _ = image_source.shape
         boxes_xyxy = box_ops.box_cxcywh_to_xyxy(boxes) * torch.Tensor([W, H, W, H])
@@ -272,6 +270,7 @@ class ObjectDetectionAndLocalizationNode(Node):
 
 def main(args=None):
     parser = argparse.ArgumentParser()
+    parser.add_argument('-q', '--query', type=str, required=True, help='query to search for in the image')
     parser.add_argument('-i', '--image_topic', type=str, required=True, help='ros2 topic name for the image stream')
     parser.add_argument('-d', '--depth_topic', type=str, required=False, help='ros2 topic name for the depth stream', default=None)
     parser.add_argument('-c', '--camera_info_topic', type=str, required=False, help='ros2 topic name for the camera info', default=None)
@@ -279,7 +278,13 @@ def main(args=None):
     cmdline_args = parser.parse_args()
 
     rclpy.init(args=args)
-    node = ObjectDetectionAndLocalizationNode(cmdline_args.image_topic, cmdline_args.depth_topic, cmdline_args.camera_info_topic, cmdline_args.frame_id)
+    node = ObjectDetectionAndLocalizationNode(
+        query = cmdline_args.query,
+        image_topic = cmdline_args.image_topic,
+        depth_topic = cmdline_args.depth_topic,
+        camera_info_topic = cmdline_args.camera_info_topic,
+        frame_id = cmdline_args.frame_id
+    )
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
