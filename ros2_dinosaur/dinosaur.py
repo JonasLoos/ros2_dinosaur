@@ -91,7 +91,7 @@ def calculate_3d_position(x, y, depth, camera_info):
     Yc = (v - cy) * depth / fy
     Zc = depth
 
-    print(f"Xc: {Xc}, Yc: {Yc}, Zc: {Zc}, u: {u}, v: {v}, depth: {depth}, fx: {fx}, fy: {fy}, cx: {cx}, cy: {cy}")
+    # print(f"Xc: {Xc}, Yc: {Yc}, Zc: {Zc}, u: {u}, v: {v}, depth: {depth}, fx: {fx}, fy: {fy}, cx: {cx}, cy: {cy}")
 
     return float(Xc), float(Yc), float(Zc)
 
@@ -136,8 +136,8 @@ class ObjectDetectionAndLocalizationNode(Node):
         self.marker_publisher = self.create_publisher(MarkerArray, 'visualization_marker_array', 10)
 
         self.bridge = CvBridge()
-        self.last_depth_image = np.ones((1,1,1))
-        self.last_image = np.zeros((1,1,3))
+        self.last_depth_image = np.ones((480,640))
+        self.last_image = np.zeros((480,640,3))
 
         # assume ideal pinhole camera model
         self.camera_info = None
@@ -259,7 +259,7 @@ class ObjectDetectionAndLocalizationNode(Node):
 
         # calculate depth
         depth_image = self.last_depth_image
-        depth_image_scaled = torch.nn.functional.interpolate(torch.from_numpy(depth_image).unsqueeze(0), size=(H, W), mode='bicubic', align_corners=False)[0,0,:,:]
+        depth_image_scaled = torch.nn.functional.interpolate(torch.from_numpy(depth_image).to(dtype=torch.float64).unsqueeze(-1).unsqueeze(0), size=(H, W), mode='bicubic', align_corners=False)[0,0,:,:]
         depths = [depth_image_scaled[mask[0]].mean().item() for mask in masks]
 
         # publish the offset vectors

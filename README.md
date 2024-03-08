@@ -69,7 +69,7 @@ source install/setup.bash
 
 ### Run
 
-Note that the script will download the model weights from the internet (several GB) the first time it is run.
+Note that the script will download the model weights from the internet (several GB) the first time it is run. The weights will be saved in `~/.ros/obj_detection/` (sam) and the default huggingface cache directory (groundingdino, usually `~/.cache/huggingface/hub/`).
 
 ```bash
 ros2 run ros2_dinosaur dinosaur -i '/video_stream' -d '/depth_stream' -f 'camera_id'
