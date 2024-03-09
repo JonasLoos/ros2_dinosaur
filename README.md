@@ -67,21 +67,34 @@ source install/setup.bash
 ```
 
 
-### Run
+## Usage
 
-Note that the script will download the model weights from the internet (several GB) the first time it is run. The weights will be saved in `~/.ros/obj_detection/` (sam) and the default huggingface cache directory (groundingdino, usually `~/.cache/huggingface/hub/`).
+Example usage:
 
 ```bash
 ros2 run ros2_dinosaur dinosaur -i '/video_stream' -d '/depth_stream' -f 'camera_id'
 ```
 
+Note that the node will download the model weights from the internet (several GB) the first time it is run. The weights will be saved in `~/.ros/obj_detection/` (sam) and the default huggingface cache directory (groundingdino, usually `~/.cache/huggingface/hub/`).
 
-### Common errors
+Arguments:
 
-Duing build:
+* `-q` or `--query`: query to search for in the image (required)
+* `-i` or `--image_topic`: ros2 topic name for the image stream (required)
+* `-d` or `--depth_topic`: ros2 topic name for the depth stream
+* `-c` or `--camera_info_topic`: ros2 topic name for the camera info
+* `-f` or `--frame_id`: frame id for the camera (default: camera_link)
+* `-u` or `--update_on`: update on receiving `image`, `depth` or `both` (default: `both`, choices: `image`, `depth`, `both`)
+
+
+## Common errors
+
+Duing installation:
+
 * error when installing groundindino: cuda-toolkit version might not fit pytorch version. Make sure you have the correct versions installed
 
 During running:
+
 * Groundingdino using cpu: cuda-toolkit probably wasn't correctly installed when installing groundindino. Try to reinstall.
 * CUDA_HOME is not set: cuda-toolkit might not be installed.
 
